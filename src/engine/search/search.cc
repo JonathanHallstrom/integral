@@ -232,6 +232,14 @@ void Searcher::IterativeDeepening(Thread &thread) {
   return static_eval;
 }
 
+
+[[nodiscard]] I64 GetComplexity(Thread &thread,
+                                  StackEntry *stack) {
+  const auto &state = thread.board.GetState();
+
+  return thread.history.correction_history->SquaredCorrectionSum(state, stack);
+}
+
 template <NodeType node_type>
 Score Searcher::QuiescentSearch(Thread &thread,
                                 Score alpha,
@@ -1022,6 +1030,8 @@ Score Searcher::PVSearch(Thread &thread,
 
     // Late Move Reduction: Moves that are less likely to be good (due to the
     // move ordering) are searched at lower depths
+    const I64 complexity = GetComplexity(thread, stack);
+    // std::cout << (complexity * kLmrComplexity >> 20) << '\n';
     if (depth > 2 && moves_seen >= 1 + in_root * 2 &&
         !(in_pv_node && is_capture)) {
       constexpr int kLmrScale = 1024;
@@ -1061,9 +1071,7 @@ Score Searcher::PVSearch(Thread &thread,
       }
 
       // Reduce less if the static evaluation has been corrected a lot
-      if (std::abs(stack->static_eval - raw_static_eval) > kLmrComplexityDiff) {
-        reduction -= kLmrComplexity;
-      }
+      reduction -= I32(complexity * kLmrComplexity >> 20);
 
       // Reduce less if this move is a killer move
       if (move == stack->killer_moves[0] || move == stack->killer_moves[1]) {

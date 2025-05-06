@@ -99,6 +99,30 @@ class CorrectionHistory {
         adjusted_score, -kTBWinInMaxPlyScore + 1, kTBWinInMaxPlyScore - 1);
   }
 
+    [[nodiscard]] I64 SquaredCorrectionSum(const BoardState &state,
+                                        StackEntry *stack) const {
+    I64 total = 0;
+    const I64 pawn_correction = pawn_table_[GetPawnTableIndex(state)][state.turn];
+    total += pawn_correction * pawn_correction;
+    const I64 non_pawn_white_correction = non_pawn_table_[GetNonPawnTableIndex(state, Color::kWhite)][state.turn][Color::kWhite];
+    total += non_pawn_white_correction * non_pawn_white_correction;
+    const I64 non_pawn_black_correction = non_pawn_table_[GetNonPawnTableIndex(state, Color::kBlack)][state.turn][Color::kBlack];
+    total += non_pawn_black_correction * non_pawn_black_correction;
+    const I64 major_correction = major_table_[GetMajorTableIndex(state)][state.turn];
+    total += major_correction * major_correction;
+    
+    for (int ply_ago : {2, 3}) {
+      if (stack->ply >= ply_ago && (stack - ply_ago)->move &&
+          (stack - 1)->move) {
+        auto &table = *(stack - ply_ago)->continuation_correction_entry;
+        const auto value = table[FlipColor(state.turn)][(stack - 1)->moved_piece][(stack - 1)->move.GetTo()];
+        total += value * value;
+      }
+    }
+    
+    return total;
+  }
+
   [[nodiscard]] ContinuationCorrectionEntry *GetContEntry(
       const BoardState &state, Move move) {
     const auto from = move.GetFrom(), to = move.GetTo();
